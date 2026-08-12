@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>IP Address Lookup</title>
+  <title>IP Address Multi-Lookup</title>
   <style>
     :root {
       --bg: #0f172a;
@@ -51,7 +51,7 @@
     .search-box {
       display: flex;
       gap: 0.5rem;
-      margin-bottom: 1.5rem;
+      margin-bottom: 1.25rem;
     }
 
     input {
@@ -84,7 +84,39 @@
       opacity: 0.9;
     }
 
-    .results {
+    /* Tab Menu Navigation */
+    .tabs-header {
+      display: flex;
+      gap: 0.25rem;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 1.25rem;
+    }
+
+    .tab-btn {
+      flex: 1;
+      padding: 0.6rem 0.5rem;
+      background: transparent;
+      color: var(--muted);
+      border: none;
+      border-bottom: 2px solid transparent;
+      border-radius: 0;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-align: center;
+    }
+
+    .tab-btn.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+      background: transparent;
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
       display: grid;
       gap: 0.75rem;
     }
@@ -92,7 +124,8 @@
     .data-row {
       display: flex;
       justify-content: space-between;
-      padding: 0.75rem 0;
+      align-items: center;
+      padding: 0.65rem 0;
       border-bottom: 1px solid var(--border);
     }
 
@@ -108,13 +141,14 @@
     .value {
       font-weight: 600;
       word-break: break-all;
+      text-align: right;
     }
 
     .error {
       color: #ef4444;
       text-align: center;
       font-size: 0.9rem;
-      margin-top: 0.5rem;
+      margin-top: 1rem;
     }
   </style>
 </head>
@@ -125,64 +159,153 @@
     
     <div class="search-box">
       <input type="text" id="ipInput" placeholder="Enter IP address (e.g. 8.8.8.8)">
-      <button onclick="lookupIP()">Search</button>
+      <button id="searchBtn">Search</button>
     </div>
 
-    <div class="results" id="results">
-      <div class="data-row"><span class="label">IP Address</span><span class="value" id="res-ip">-</span></div>
-      <div class="data-row"><span class="label">City</span><span class="value" id="res-city">-</span></div>
-      <div class="data-row"><span class="label">Region / State</span><span class="value" id="res-region">-</span></div>
-      <div class="data-row"><span class="label">Country</span><span class="value" id="res-country">-</span></div>
-      <div class="data-row"><span class="label">ISP / Org</span><span class="value" id="res-org">-</span></div>
-      <div class="data-row"><span class="label">Timezone</span><span class="value" id="res-timezone">-</span></div>
+    <!-- Tab Menu Navigation -->
+    <div class="tabs-header">
+      <button class="tab-btn active" onclick="switchTab(event, 'tab-ipwhois')">ipwho.is</button>
+      <button class="tab-btn" onclick="switchTab(event, 'tab-ipinfo')">ipinfo.io</button>
+      <button class="tab-btn" onclick="switchTab(event, 'tab-country')">country.is</button>
+    </div>
+
+    <!-- Tab 1: ipwho.is -->
+    <div class="tab-content active" id="tab-ipwhois">
+      <div class="data-row"><span class="label">IP Address</span><span class="value" id="api1-ip">-</span></div>
+      <div class="data-row"><span class="label">City</span><span class="value" id="api1-city">-</span></div>
+      <div class="data-row"><span class="label">Region</span><span class="value" id="api1-region">-</span></div>
+      <div class="data-row"><span class="label">Country</span><span class="value" id="api1-country">-</span></div>
+      <div class="data-row"><span class="label">ISP / Org</span><span class="value" id="api1-org">-</span></div>
+      <div class="data-row"><span class="label">Timezone</span><span class="value" id="api1-timezone">-</span></div>
+    </div>
+
+    <!-- Tab 2: ipinfo.io -->
+    <div class="tab-content" id="tab-ipinfo">
+      <div class="data-row"><span class="label">IP Address</span><span class="value" id="api2-ip">-</span></div>
+      <div class="data-row"><span class="label">City</span><span class="value" id="api2-city">-</span></div>
+      <div class="data-row"><span class="label">Region</span><span class="value" id="api2-region">-</span></div>
+      <div class="data-row"><span class="label">Country</span><span class="value" id="api2-country">-</span></div>
+      <div class="data-row"><span class="label">ISP / Org</span><span class="value" id="api2-org">-</span></div>
+      <div class="data-row"><span class="label">Timezone</span><span class="value" id="api2-timezone">-</span></div>
+    </div>
+
+    <!-- Tab 3: country.is -->
+    <div class="tab-content" id="tab-country">
+      <div class="data-row"><span class="label">IP Address</span><span class="value" id="api3-ip">-</span></div>
+      <div class="data-row"><span class="label">City</span><span class="value" id="api3-city">-</span></div>
+      <div class="data-row"><span class="label">Region</span><span class="value" id="api3-region">-</span></div>
+      <div class="data-row"><span class="label">Country Code</span><span class="value" id="api3-country">-</span></div>
+      <div class="data-row"><span class="label">ASN</span><span class="value" id="api3-org">-</span></div>
+      <div class="data-row"><span class="label">Timezone</span><span class="value" id="api3-timezone">-</span></div>
     </div>
     
     <div class="error" id="error"></div>
   </div>
 
   <script>
+    function switchTab(event, tabId) {
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+
+      document.getElementById(tabId).classList.add('active');
+      event.currentTarget.classList.add('active');
+    }
+
     async function lookupIP(targetIp = '') {
       const errorEl = document.getElementById('error');
       errorEl.textContent = '';
-      
-      const endpoint = targetIp 
-        ? `https://ipapi.co/${targetIp}/json/` 
-        : `https://ipapi.co/json/`;
+
+      // Set up 3 reliable endpoints
+      const ep1 = targetIp ? `https://ipwho.is/${targetIp}` : `https://ipwho.is/`;
+      const ep2 = targetIp ? `https://ipinfo.io/${targetIp}/json` : `https://ipinfo.io/json`;
+      const ep3 = targetIp ? `https://api.country.is/${targetIp}?fields=city,subdivision,asn,location` : `https://api.country.is/?fields=city,subdivision,asn,location`;
 
       try {
-        const response = await fetch(endpoint);
-        const data = await response.json();
+        const results = await Promise.allSettled([
+          fetch(ep1).then(r => r.json()),
+          fetch(ep2).then(r => r.json()),
+          fetch(ep3).then(r => r.json())
+        ]);
 
-        if (data.error) {
-          throw new Error(data.reason || 'Invalid IP address or request limit reached.');
+        // API 1: ipwho.is
+        if (results[0].status === 'fulfilled' && results[0].value.success !== false) {
+          const res = results[0].value;
+          populateTab('api1', {
+            ip: res.ip || '-',
+            city: res.city || '-',
+            region: res.region || '-',
+            country: res.country || '-',
+            org: res.connection?.isp || res.isp || '-',
+            timezone: res.timezone?.id || '-'
+          });
+        } else {
+          setErrorForTab('api1', 'Unable to reach ipwho.is');
         }
 
-        document.getElementById('res-ip').textContent = data.ip || '-';
-        document.getElementById('res-city').textContent = data.city || '-';
-        document.getElementById('res-region').textContent = data.region || '-';
-        document.getElementById('res-country').textContent = `${data.country_name || '-'} (${data.country_code || '-'})`;
-        document.getElementById('res-org').textContent = data.org || '-';
-        document.getElementById('res-timezone').textContent = data.timezone || '-';
+        // API 2: ipinfo.io
+        if (results[1].status === 'fulfilled' && !results[1].value.error) {
+          const res = results[1].value;
+          populateTab('api2', {
+            ip: res.ip || '-',
+            city: res.city || '-',
+            region: res.region || '-',
+            country: res.country || '-',
+            org: res.org || '-',
+            timezone: res.timezone || '-'
+          });
+        } else {
+          setErrorForTab('api2', 'Unable to reach ipinfo.io');
+        }
+
+        // API 3: country.is
+        if (results[2].status === 'fulfilled' && !results[2].value.error) {
+          const res = results[2].value;
+          populateTab('api3', {
+            ip: res.ip || '-',
+            city: res.city || '-',
+            region: res.subdivision || '-',
+            country: res.country || '-',
+            org: res.asn ? `AS${res.asn.number}` : '-',
+            timezone: res.location?.time_zone || '-'
+          });
+        } else {
+          setErrorForTab('api3', 'Unable to reach country.is');
+        }
+
       } catch (err) {
-        errorEl.textContent = err.message || 'Failed to fetch IP details.';
+        errorEl.textContent = 'Failed to execute lookups.';
       }
     }
 
-    // Manual search trigger
+    function populateTab(prefix, data) {
+      document.getElementById(`${prefix}-ip`).textContent = data.ip;
+      document.getElementById(`${prefix}-city`).textContent = data.city;
+      document.getElementById(`${prefix}-region`).textContent = data.region;
+      document.getElementById(`${prefix}-country`).textContent = data.country;
+      document.getElementById(`${prefix}-org`).textContent = data.org;
+      document.getElementById(`${prefix}-timezone`).textContent = data.timezone;
+    }
+
+    function setErrorForTab(prefix, message) {
+      document.getElementById(`${prefix}-ip`).textContent = message;
+      document.getElementById(`${prefix}-city`).textContent = '-';
+      document.getElementById(`${prefix}-region`).textContent = '-';
+      document.getElementById(`${prefix}-country`).textContent = '-';
+      document.getElementById(`${prefix}-org`).textContent = '-';
+      document.getElementById(`${prefix}-timezone`).textContent = '-';
+    }
+
     function handleSearch() {
       const input = document.getElementById('ipInput').value.trim();
       lookupIP(input);
     }
 
-    // Trigger on button click
-    document.querySelector('button').addEventListener('click', handleSearch);
-
-    // Trigger on Enter key in input
+    document.getElementById('searchBtn').addEventListener('click', handleSearch);
     document.getElementById('ipInput').addEventListener('keypress', (e) => {
       if (e.key === 'Enter') handleSearch();
     });
 
-    // Automatically lookup the visitor's IP on initial load
+    // Initial search on load
     lookupIP();
   </script>
 </body>

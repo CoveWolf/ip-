@@ -144,6 +144,24 @@
       text-align: right;
     }
 
+    .external-link-btn {
+      display: inline-block;
+      margin-top: 0.75rem;
+      padding: 0.5rem 0.75rem;
+      background: #334155;
+      color: var(--accent);
+      text-decoration: none;
+      font-size: 0.85rem;
+      font-weight: 600;
+      border-radius: 6px;
+      text-align: center;
+      transition: background 0.2s;
+    }
+
+    .external-link-btn:hover {
+      background: #475569;
+    }
+
     .error {
       color: #ef4444;
       text-align: center;
@@ -162,25 +180,15 @@
       <button id="searchBtn">Search</button>
     </div>
 
-    <!-- Tab Menu Navigation -->
+    <!-- Tab Menu Navigation (MaxMind moved to far right) -->
     <div class="tabs-header">
       <button class="tab-btn active" onclick="switchTab(event, 'tab-ipwhois')">ipwho.is</button>
-      <button class="tab-btn" onclick="switchTab(event, 'tab-ipinfo')">ipinfo.io</button>
-      <button class="tab-btn" onclick="switchTab(event, 'tab-country')">country.is</button>
+      <button class="tab-btn" onclick="switchTab(event, 'tab-freeipapi')">freeipapi.com</button>
+      <button class="tab-btn" onclick="switchTab(event, 'tab-maxmind')">MaxMind GeoLite</button>
     </div>
 
-    <!-- Tab 1: ipwho.is -->
+    <!-- Tab 1: ipwho.is (Default Active Tab) -->
     <div class="tab-content active" id="tab-ipwhois">
-      <div class="data-row"><span class="label">IP Address</span><span class="value" id="api1-ip">-</span></div>
-      <div class="data-row"><span class="label">City</span><span class="value" id="api1-city">-</span></div>
-      <div class="data-row"><span class="label">Region</span><span class="value" id="api1-region">-</span></div>
-      <div class="data-row"><span class="label">Country</span><span class="value" id="api1-country">-</span></div>
-      <div class="data-row"><span class="label">ISP / Org</span><span class="value" id="api1-org">-</span></div>
-      <div class="data-row"><span class="label">Timezone</span><span class="value" id="api1-timezone">-</span></div>
-    </div>
-
-    <!-- Tab 2: ipinfo.io -->
-    <div class="tab-content" id="tab-ipinfo">
       <div class="data-row"><span class="label">IP Address</span><span class="value" id="api2-ip">-</span></div>
       <div class="data-row"><span class="label">City</span><span class="value" id="api2-city">-</span></div>
       <div class="data-row"><span class="label">Region</span><span class="value" id="api2-region">-</span></div>
@@ -189,14 +197,25 @@
       <div class="data-row"><span class="label">Timezone</span><span class="value" id="api2-timezone">-</span></div>
     </div>
 
-    <!-- Tab 3: country.is -->
-    <div class="tab-content" id="tab-country">
+    <!-- Tab 2: freeipapi.com -->
+    <div class="tab-content" id="tab-freeipapi">
       <div class="data-row"><span class="label">IP Address</span><span class="value" id="api3-ip">-</span></div>
       <div class="data-row"><span class="label">City</span><span class="value" id="api3-city">-</span></div>
       <div class="data-row"><span class="label">Region</span><span class="value" id="api3-region">-</span></div>
-      <div class="data-row"><span class="label">Country Code</span><span class="value" id="api3-country">-</span></div>
-      <div class="data-row"><span class="label">ASN</span><span class="value" id="api3-org">-</span></div>
+      <div class="data-row"><span class="label">Country</span><span class="value" id="api3-country">-</span></div>
+      <div class="data-row"><span class="label">ISP / ASN</span><span class="value" id="api3-org">-</span></div>
       <div class="data-row"><span class="label">Timezone</span><span class="value" id="api3-timezone">-</span></div>
+    </div>
+
+    <!-- Tab 3: MaxMind GeoLite2 (via Cloudflare Proxy) -->
+    <div class="tab-content" id="tab-maxmind">
+      <div class="data-row"><span class="label">IP Address</span><span class="value" id="api1-ip">-</span></div>
+      <div class="data-row"><span class="label">City</span><span class="value" id="api1-city">-</span></div>
+      <div class="data-row"><span class="label">Region</span><span class="value" id="api1-region">-</span></div>
+      <div class="data-row"><span class="label">Country</span><span class="value" id="api1-country">-</span></div>
+      <div class="data-row"><span class="label">ASN</span><span class="value" id="api1-org">-</span></div>
+      <div class="data-row"><span class="label">Timezone</span><span class="value" id="api1-timezone">-</span></div>
+      <a id="maxmind-link" href="#" target="_blank" rel="noopener noreferrer" class="external-link-btn" style="display: none;">🔗 Inspect IP on MaxMind.com</a>
     </div>
     
     <div class="error" id="error"></div>
@@ -211,65 +230,98 @@
       event.currentTarget.classList.add('active');
     }
 
+    async function fetchJsonSafe(url) {
+      try {
+        const res = await fetch(url, {
+          headers: { 'Accept': 'application/json' }
+        });
+        if (!res.ok) return null;
+        return await res.json();
+      } catch (e) {
+        return null;
+      }
+    }
+
     async function lookupIP(targetIp = '') {
       const errorEl = document.getElementById('error');
       errorEl.textContent = '';
 
-      // Set up 3 reliable endpoints
-      const ep1 = targetIp ? `https://ipwho.is/${targetIp}` : `https://ipwho.is/`;
-      const ep2 = targetIp ? `https://ipinfo.io/${targetIp}/json` : `https://ipinfo.io/json`;
-      const ep3 = targetIp ? `https://api.country.is/${targetIp}?fields=city,subdivision,asn,location` : `https://api.country.is/?fields=city,subdivision,asn,location`;
+      const MAXMIND_PROXY_URL = 'https://maxmind-ip-proxy.reese-e40.workers.dev';
+
+      const ep1 = targetIp ? `${MAXMIND_PROXY_URL}?ip=${targetIp}` : MAXMIND_PROXY_URL;
+      const ep2 = targetIp ? `https://ipwho.is/${targetIp}` : `https://ipwho.is/`;
+      const ep3 = targetIp ? `https://freeipapi.com/api/json/${targetIp}` : `https://freeipapi.com/api/json`;
 
       try {
         const results = await Promise.allSettled([
-          fetch(ep1).then(r => r.json()),
-          fetch(ep2).then(r => r.json()),
-          fetch(ep3).then(r => r.json())
+          fetchJsonSafe(ep1),
+          fetchJsonSafe(ep2),
+          fetchJsonSafe(ep3)
         ]);
 
-        // API 1: ipwho.is
-        if (results[0].status === 'fulfilled' && results[0].value.success !== false) {
-          const res = results[0].value;
+        // --- API 1: MaxMind (via Proxy) ---
+        const maxmindRes = results[0].value;
+        const maxmindLinkBtn = document.getElementById('maxmind-link');
+
+        if (results[0].status === 'fulfilled' && maxmindRes && !maxmindRes.error) {
+          const resolvedIp = maxmindRes.traits?.ip_address || targetIp || 'Current IP';
+          
           populateTab('api1', {
-            ip: res.ip || '-',
-            city: res.city || '-',
-            region: res.region || '-',
-            country: res.country || '-',
-            org: res.connection?.isp || res.isp || '-',
-            timezone: res.timezone?.id || '-'
+            ip: resolvedIp,
+            city: maxmindRes.city?.names?.en || '-',
+            region: maxmindRes.subdivisions?.[0]?.names?.en || '-',
+            country: maxmindRes.country?.names?.en || '-',
+            org: maxmindRes.traits?.autonomous_system_number ? `AS${maxmindRes.traits.autonomous_system_number}` : '-',
+            timezone: maxmindRes.location?.time_zone || '-'
           });
+
+          // Set up external direct MaxMind demo link
+          if (resolvedIp && resolvedIp !== 'Current IP') {
+            maxmindLinkBtn.href = `https://www.maxmind.com/en/geoip2-precision-demo?ip=${resolvedIp}`;
+            maxmindLinkBtn.style.display = 'block';
+          } else {
+            maxmindLinkBtn.style.display = 'none';
+          }
         } else {
-          setErrorForTab('api1', 'Unable to reach ipwho.is');
+          setErrorForTab('api1', 'MaxMind Proxy offline');
+          maxmindLinkBtn.style.display = 'none';
         }
 
-        // API 2: ipinfo.io
-        if (results[1].status === 'fulfilled' && !results[1].value.error) {
-          const res = results[1].value;
+        // --- API 2: ipwho.is ---
+        const ipwhoisRes = results[1].value;
+        if (results[1].status === 'fulfilled' && ipwhoisRes && ipwhoisRes.success !== false) {
           populateTab('api2', {
-            ip: res.ip || '-',
-            city: res.city || '-',
-            region: res.region || '-',
-            country: res.country || '-',
-            org: res.org || '-',
-            timezone: res.timezone || '-'
+            ip: ipwhoisRes.ip || '-',
+            city: ipwhoisRes.city || '-',
+            region: ipwhoisRes.region || '-',
+            country: ipwhoisRes.country || '-',
+            org: ipwhoisRes.connection?.isp || ipwhoisRes.isp || '-',
+            timezone: ipwhoisRes.timezone?.id || '-'
           });
         } else {
-          setErrorForTab('api2', 'Unable to reach ipinfo.io');
+          setErrorForTab('api2', 'Unable to reach ipwho.is');
         }
 
-        // API 3: country.is
-        if (results[2].status === 'fulfilled' && !results[2].value.error) {
-          const res = results[2].value;
+        // --- API 3: freeipapi.com ---
+        const freeipRes = results[2].value;
+        if (results[2].status === 'fulfilled' && freeipRes && !freeipRes.error) {
+          let tz = '-';
+          if (Array.isArray(freeipRes.timeZones) && freeipRes.timeZones.length > 0) {
+            tz = freeipRes.timeZones[0];
+          } else if (freeipRes.timeZone) {
+            tz = freeipRes.timeZone;
+          }
+
           populateTab('api3', {
-            ip: res.ip || '-',
-            city: res.city || '-',
-            region: res.subdivision || '-',
-            country: res.country || '-',
-            org: res.asn ? `AS${res.asn.number}` : '-',
-            timezone: res.location?.time_zone || '-'
+            ip: freeipRes.ipAddress || freeipRes.ip || targetIp || '-',
+            city: freeipRes.cityName || freeipRes.city || '-',
+            region: freeipRes.regionName || freeipRes.region || '-',
+            country: freeipRes.countryName || freeipRes.country || '-',
+            org: freeipRes.asn ? `AS${freeipRes.asn}` : (freeipRes.isp || '-'),
+            timezone: tz
           });
         } else {
-          setErrorForTab('api3', 'Unable to reach country.is');
+          setErrorForTab('api3', 'Unable to reach freeipapi.com');
         }
 
       } catch (err) {

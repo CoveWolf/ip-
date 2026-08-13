@@ -180,10 +180,10 @@
       <button id="searchBtn">Search</button>
     </div>
 
-    <!-- Tab Menu Navigation (MaxMind moved to far right) -->
+    <!-- Tab Menu Navigation -->
     <div class="tabs-header">
       <button class="tab-btn active" onclick="switchTab(event, 'tab-ipwhois')">ipwho.is</button>
-      <button class="tab-btn" onclick="switchTab(event, 'tab-freeipapi')">freeipapi.com</button>
+      <button class="tab-btn" onclick="switchTab(event, 'tab-ipinfo')">ipinfo.io</button>
       <button class="tab-btn" onclick="switchTab(event, 'tab-maxmind')">MaxMind GeoLite</button>
     </div>
 
@@ -197,13 +197,13 @@
       <div class="data-row"><span class="label">Timezone</span><span class="value" id="api2-timezone">-</span></div>
     </div>
 
-    <!-- Tab 2: freeipapi.com -->
-    <div class="tab-content" id="tab-freeipapi">
+    <!-- Tab 2: ipinfo.io (Replaced ipapi.co) -->
+    <div class="tab-content" id="tab-ipinfo">
       <div class="data-row"><span class="label">IP Address</span><span class="value" id="api3-ip">-</span></div>
       <div class="data-row"><span class="label">City</span><span class="value" id="api3-city">-</span></div>
       <div class="data-row"><span class="label">Region</span><span class="value" id="api3-region">-</span></div>
       <div class="data-row"><span class="label">Country</span><span class="value" id="api3-country">-</span></div>
-      <div class="data-row"><span class="label">ISP / ASN</span><span class="value" id="api3-org">-</span></div>
+      <div class="data-row"><span class="label">ISP / Org</span><span class="value" id="api3-org">-</span></div>
       <div class="data-row"><span class="label">Timezone</span><span class="value" id="api3-timezone">-</span></div>
     </div>
 
@@ -250,7 +250,7 @@
 
       const ep1 = targetIp ? `${MAXMIND_PROXY_URL}?ip=${targetIp}` : MAXMIND_PROXY_URL;
       const ep2 = targetIp ? `https://ipwho.is/${targetIp}` : `https://ipwho.is/`;
-      const ep3 = targetIp ? `https://freeipapi.com/api/json/${targetIp}` : `https://freeipapi.com/api/json`;
+      const ep3 = targetIp ? `https://ipinfo.io/${targetIp}/json` : `https://ipinfo.io/json`;
 
       try {
         const results = await Promise.allSettled([
@@ -275,7 +275,6 @@
             timezone: maxmindRes.location?.time_zone || '-'
           });
 
-          // Set up external direct MaxMind demo link
           if (resolvedIp && resolvedIp !== 'Current IP') {
             maxmindLinkBtn.href = `https://www.maxmind.com/en/geoip2-precision-demo?ip=${resolvedIp}`;
             maxmindLinkBtn.style.display = 'block';
@@ -302,26 +301,19 @@
           setErrorForTab('api2', 'Unable to reach ipwho.is');
         }
 
-        // --- API 3: freeipapi.com ---
-        const freeipRes = results[2].value;
-        if (results[2].status === 'fulfilled' && freeipRes && !freeipRes.error) {
-          let tz = '-';
-          if (Array.isArray(freeipRes.timeZones) && freeipRes.timeZones.length > 0) {
-            tz = freeipRes.timeZones[0];
-          } else if (freeipRes.timeZone) {
-            tz = freeipRes.timeZone;
-          }
-
+        // --- API 3: ipinfo.io ---
+        const ipinfoRes = results[2].value;
+        if (results[2].status === 'fulfilled' && ipinfoRes && !ipinfoRes.error) {
           populateTab('api3', {
-            ip: freeipRes.ipAddress || freeipRes.ip || targetIp || '-',
-            city: freeipRes.cityName || freeipRes.city || '-',
-            region: freeipRes.regionName || freeipRes.region || '-',
-            country: freeipRes.countryName || freeipRes.country || '-',
-            org: freeipRes.asn ? `AS${freeipRes.asn}` : (freeipRes.isp || '-'),
-            timezone: tz
+            ip: ipinfoRes.ip || targetIp || '-',
+            city: ipinfoRes.city || '-',
+            region: ipinfoRes.region || '-',
+            country: ipinfoRes.country || '-',
+            org: ipinfoRes.org || '-',
+            timezone: ipinfoRes.timezone || '-'
           });
         } else {
-          setErrorForTab('api3', 'Unable to reach freeipapi.com');
+          setErrorForTab('api3', 'Unable to reach ipinfo.io');
         }
 
       } catch (err) {
